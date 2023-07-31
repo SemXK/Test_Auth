@@ -18,7 +18,7 @@ async function main() {
             position:0,
           },
           {
-            text: 'Seconda Task di Trello!',
+            text: 'Seconda Task di Trello!!',
             position:1,
           }
         ]
