@@ -5,12 +5,20 @@ const prisma = new PrismaClient();
 
 //Fundamental functions
 async function main() {
+  const user = await prisma.user.create({
+    data: {
+      email: 'TeslaNikola@gmail.com',
+      name: 'Nikola Tesla',
+      passwordHash:''
+    }
+  })
 
   // Create an Instance of 'Dashboard' with 2 'Content' Instances inside
   await prisma.dashboard.create({
     data: {
       name: 'dashboard 1',
       position: 0,
+      userId: user.id,
       contents: {
         create: [
           {
@@ -31,6 +39,7 @@ async function main() {
     data: {
       name: 'dashboard 2',
       position: 1,
+      userId: user.id,
       contents: {
         create: [
           {

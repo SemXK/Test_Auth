@@ -15,6 +15,9 @@ model Dashboard {
   name           String
   position       Int
   contents       Content[]
+  user           User       @relation(fields:[userId], references: [id])      //Connect Dash.userId > User.id
+  userId         String
+  @@unique([id, userId])   //Allows to use as a Unique index
 }
 model Content {
   id              String      @id @default(cuid())
@@ -23,4 +26,14 @@ model Content {
   dashboardId     String
 
   dashboard       Dashboard @relation(fields: [dashboardId],references: [id])
+
+  @@unique([id, dashboardId])     //Allows to use as a Unique index
+}
+
+model User{
+  id              String      @id @default(cuid())
+  name            String
+  email           String      @unique
+  passwordHash    String      
+  dashboards      Dashboard[]
 }
