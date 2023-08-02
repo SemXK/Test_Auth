@@ -24,13 +24,14 @@ export class DashboardService {
       where: {
         userId: userId,
       },
-      orderBy: {
-        position: 'asc'         //Pretty clear
-      },
+      // orderBy: {
+      //   position: 'asc'         //Pretty clear
+      // },
     });
-    if(position >= dashboards.length) {
-      return false
-    }
+    // if(position >= dashboards.length) {
+    //   console.log('primo')
+    //   return false
+    // }
     const oldPosition = dashboards.findIndex(d => d.id === dashboardId)
     if(oldPosition === -1) {
       return false;

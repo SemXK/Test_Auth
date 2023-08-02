@@ -9,7 +9,7 @@ async function main() {
     data: {
       email: 'TeslaNikola@gmail.com',
       name: 'Nikola Tesla',
-      passwordHash:''
+      passwordHash:'123'
     }
   })
 
