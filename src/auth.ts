@@ -3,24 +3,53 @@ import  { DashboardService } from './dashboard-service'
 import { User } from '@prisma/client'
 import { PrismaClient } from '@prisma/client'
 import  { hashSync, compareSync } from 'bcrypt'
+import { getJwtKeys } from './key'
+import jwt from 'jsonwebtoken'
 //Fundamental constants
 const auth = express()
 const prisma = new PrismaClient()
-//HTTP Post requests
-auth.post('/login', async (req, res) => {
-  const { email, password } = req.body;     //get data
+
+//Fundamental constants (verifying informations, getting jwt keys, calculating exp dates)
+async function verifyEmailAndPassword(email: string, password: string): Promise <User | null> {
   const user = await prisma.user.findUnique({     //get the user with provided email
     where: {
       email: email
     },
   });
-  if(!user) { //User doesnt exist
-    return res.status(401).send(`Informations provided are not valid!`)
+  if(!user) {     //User exists?
+    return null
   }
-  if(!compareSync(password, user.passwordHash)) {
-    return res.status(401).send(`Informations provided are not valid!`)
-  }   //Check if the provided password matches the password of the user, returns a Boolean.
-  return res.status(200).send(`Welcome back ${user.name}!`)
+  if(!compareSync(password, user.passwordHash)) { //provided pass = user's actual pass ? 
+    return null
+  }  
+  return user
+}
+
+async function generateJwt(user: User): Promise<string> {
+  const payload = {        //create presonal key for user
+    aud: 'access',
+    exp: getExpTime(2 * 60),    //expires in 2 hours
+    id: user.id,
+    email: user.email
+  };
+  const { privateKey } = await getJwtKeys()   //obtain users private key
+  return jwt.sign(payload, privateKey, {algorithm: 'RS256'})      //encode and sign users key
+}
+
+function getExpTime(min: number) {
+  const now = Math.trunc(new Date().getTime() /1000)
+  return now + min * 60
+}
+//HTTP Post requests
+auth.post('/login', async (req, res) => {
+  const { privateKey } = await getJwtKeys();
+  const { email, password } = req.body;     //get data
+  const user = await verifyEmailAndPassword(email, password)
+  if(!user) {     //User exists?
+    return res.status(404).send(`Invalid credentials!`)
+  }
+  const token = await generateJwt(user)   
+  return res.status(200).send({accessToken: token})   //give the user his private key
 });
 
 auth.post('/register', async (req, res) => {

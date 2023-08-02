@@ -37,3 +37,9 @@ model User{
   passwordHash    String      
   dashboards      Dashboard[]
 }
+
+model JwtKey {
+  id              Int      @id @default(autoincrement())
+  privateKey      String
+  publicKey       String
+}
