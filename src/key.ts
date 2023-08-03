@@ -1,5 +1,6 @@
 import { generateKeyPairSync } from "crypto";
 import { PrismaClient } from "@prisma/client";
+
 export interface JwtKeys {
   privateKey: string;
   publicKey: string
@@ -25,15 +26,16 @@ function generateKeys(): JwtKeys {
 
 export async function getJwtKeys(): Promise <JwtKeys> {
   let keys = await prisma.jwtKey.findFirst()          //see if keys are existing
-  const { privateKey, publicKey} = generateKeys()     //generate a pair of secret Keys,
+
   if(!keys) {
+    const { privateKey, publicKey} = generateKeys()     //generate a pair of secret Keys,
     keys = await prisma.jwtKey.create({   //Use the keys to create an instance of "JwtKeys"
       data: {
-        privateKey,   //use private key as "private key"
-        publicKey     //use public key as "public key"
+        privateKey: privateKey,   //use private key as "private key"
+        publicKey: publicKey     //use public key as "public key"
       },
     });
   };
-  return { privateKey, publicKey}       //return generated / existing keys
+  return {publicKey: keys.publicKey, privateKey: keys.privateKey}      //return generated / existing keys
 
 }

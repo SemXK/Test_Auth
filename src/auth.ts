@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client'
 import  { hashSync, compareSync } from 'bcrypt'
 import { getJwtKeys } from './key'
 import jwt from 'jsonwebtoken'
+import { body, validationResult } from 'express-validator'
 //Fundamental constants
 const auth = express()
 const prisma = new PrismaClient()
@@ -41,21 +42,39 @@ function getExpTime(min: number) {
   return now + min * 60
 }
 //HTTP Post requests
-auth.post('/login', async (req, res) => {
-  const { privateKey } = await getJwtKeys();
-  const { email, password } = req.body;     //get data
-  const user = await verifyEmailAndPassword(email, password)
-  if(!user) {     //User exists?
-    return res.status(404).send(`Invalid credentials!`)
-  }
-  const token = await generateJwt(user)   
-  return res.status(200).send({accessToken: token})   //give the user his private key
+auth.post('/login',   //Login w/ email & pass, generate a jwt
+  body('email').isEmail(),        //Function's parameter
+  body('password').isString(),    //Function's parameter
+  async (req, res) => {           //Function's parameter
+
+    const errors = validationResult(req)      //Validate provided info
+    if(!errors.isEmpty()) {
+      return res.status(404).send({errors})
+    }
+    const { email, password } = req.body;     //get data
+    const user = await verifyEmailAndPassword(email, password)
+    if(!user) {     //User exists?
+      return res.status(404).send(`Invalid credentials!`)
+    }
+    const token = await generateJwt(user)   
+    return res.status(200).send({accessToken: token})   //give the user his private key
 });
 
-auth.post('/register', async (req, res) => {
-    const { email, password, name } = req.body;       //Prisma automatically checks if the password has already been utilized
+auth.post('/register',                 //Create a new user
+  body('email').isEmail(),             //Function's parameter
+  body('password').isLength({min: 8}),        //Function's parameter
+  body('name').isString(),        //Function's parameter
+  async (req, res) => {               //Function's parameter
+    
+    
+    const errors = validationResult(req)      //Validate provided info
+    if(!errors.isEmpty()) {
+      return res.status(404).send({errors})
+    }
+    const { email, password, name } = req.body;       //Prisma automatically checks if the email has already been utilized
     const passwordHash = hashSync(password, 10)
-    let user: User;                                    //Create Local variable to use outside the "try" block
+    let user: User;                                    //Create Local variable to use outside "try" block
+    
     try{
       user = await prisma.user.create({
         data: {
