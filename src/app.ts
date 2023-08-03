@@ -2,26 +2,52 @@ import express from 'express'
 import  { DashboardService } from './dashboard-service'
 import cors from 'cors'
 import { PrismaClient } from '@prisma/client'
-
+import { getJwtKeys } from './key'
+import jwt from 'jsonwebtoken'
 
 //Fundamental constants
 const prisma = new PrismaClient()
 const app = express()      //Main application
 const dashboardService = new DashboardService(prisma)   //Call Dashboard class, sending prisma as argument for the constructor
 
+//Fundamental constants(Token Regex)
+async function verifyToken(header: string | undefined): Promise<string | null>{
+  if(!header){
+    return null
+  }
+  const match = /Bearer (.+)/.exec(header);    //Check the token structure
+  if(!match) {
+    return null
+  }
+  const token = match[1]
+  const { publicKey } = await getJwtKeys();     //Get public key
+  try{
+    const data = jwt.verify(token, publicKey, {  //Check if token and public key are equal
+      algorithms: ['RS256'],
+    }) as { id: string }
+    const userId = data.id
+    return userId     //return user with the provided public key
+  } catch {
+    return null
+  }
+}
 
 //Middleware
 app.use(express.json())
 app.use(cors({             //Link BackEnd to FrontEnd
   origin: 'http://localhost:3000'       //use localhost 3000 as the ONLY url who can access these functions
 }))
+app.use(async (req, res, next) => {       //Verify Token before any render
+  const authHeader = req.headers['authorization']
+  const userId = await verifyToken(authHeader);
+  if(!userId) {
+    return res.status(404).send(`Invalid credentials!`)
+  }
+  res.locals.usedId = userId
+  next();
+});
 
 
-//Trail Functions
-const getUser = async () => {
-  const user = await prisma.user.findFirst();
-  return user!;
-}
 
 //HTTP Get Requests
 app.get('/', async (req, res) => {           //Get all Dashboards AND 
@@ -33,8 +59,8 @@ app.get('/', async (req, res) => {           //Get all Dashboards AND
 app.post('/:dashboardId/move', async(req, res) => {      //Move a Dashboard
   const { position } = req.body;
   const { dashboardId } = req.params
-  const user = await getUser()
-  const response = dashboardService.moveDashboard(user.id, dashboardId, position)
+  const userId = res.locals.userId
+  const response = dashboardService.moveDashboard(userId, dashboardId, position)
   if(!response){
     return res.status(404).send(`Cannot move this dashboard!`)
   }
@@ -44,9 +70,9 @@ app.post('/:dashboardId/move', async(req, res) => {      //Move a Dashboard
 app.post('/:dashboardId/:contentId/move', async(req, res) => {     //Move a Content
   const to = req.body;
   const from = req.params
-  const user = await getUser()
+  const userId = res.locals.userId
   const response = dashboardService.moveContent(
-    user.id, from.contentId, to.position, from.dashboardId, to.dashboardId
+    userId, from.contentId, to.position, from.dashboardId, to.dashboardId
   )
   if(!response){
     return res.status(404).send(`Cannot move this content!`)
@@ -56,8 +82,8 @@ app.post('/:dashboardId/:contentId/move', async(req, res) => {     //Move a Cont
 
 app.post('/', async (req, res) => {      //Create a new Dashboard
   const { name } =req.body;
-  const user = await getUser()
-  await dashboardService.createDashboard(user.id, name);
+  const userId = res.locals.userId
+  await dashboardService.createDashboard(userId, name);
   const dashboards = await dashboardService.getDashboards();
   return res.status(200).send(dashboards);
 })
@@ -65,18 +91,18 @@ app.post('/', async (req, res) => {      //Create a new Dashboard
 app.post('/:dashboardId', async (req, res) => {    //Create a new Content in a specific Dashboard
   const {dashboardId} = req.params
   const { text } =req.body;
-  const user = await getUser()
-  await dashboardService.createContent(user.id, dashboardId, text);
+  const userId = res.locals.userId
+  await dashboardService.createContent(userId, dashboardId, text);
   const dashboards = await dashboardService.getDashboards();
   return res.status(200).send(dashboards);
 })
 
 
 //HTTP Delete Requests
-app.delete('/:dashboardId', async (req, res) => {      //Delete a new Dashboard
+app.delete('/:dashboardId', async (req, res) => {      //Delete a Dashboard
   const { dashboardId } =req.params;
-  const user = await getUser()
-  const result = await dashboardService.deleteDashboard(user.id, dashboardId);   //Which returns true if the Dashboard was deleted
+  const userId = res.locals.userId
+  const result = await dashboardService.deleteDashboard(userId, dashboardId);   //Which returns true if the Dashboard was deleted
   
   if(!result) {   //CHeck if the dashboard was successfully deleted
     return res.status(404).send(`Dashboard with id: ${dashboardId} was not found :(`)
@@ -85,10 +111,10 @@ app.delete('/:dashboardId', async (req, res) => {      //Delete a new Dashboard
   return res.status(200).send(dashboards);
 })
 
-app.delete('/:dashboardId/:contentId', async (req, res) => {      //Delete a new Dashboard
+app.delete('/:dashboardId/:contentId', async (req, res) => {      //Delete a Content
   const { dashboardId, contentId } =req.params;
-  const user = await getUser()
-  const result = await dashboardService.deleteContent(user.id ,dashboardId, contentId);   //Which returns true if the Dashboard was deleted
+  const userId = res.locals.userId
+  const result = await dashboardService.deleteContent(userId,dashboardId, contentId);   //Which returns true if the Dashboard was deleted
   
   if(!result) {   //CHeck if the dashboard was successfully deleted
     return res.status(404).send(`Content with id: ${contentId} was not found :(`)
