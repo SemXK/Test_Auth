@@ -25,11 +25,9 @@ async function verifyToken(header: string | undefined): Promise<string | null>{
   const { publicKey } = await getJwtKeys();     //Get public key
 
   try{
-    console.log('token: ', token)
     const data = jwt.verify(token, publicKey, {     //Check if token and public key are equal
       algorithms: ['RS256']
     }) as { id: string }
-    console.log('shit')
     return data.id        //return user with the provided public key
   } catch {
     return null
